@@ -1,114 +1,84 @@
 import streamlit as st
 import pandas as pd
-from io import StringIO
 
-st.set_page_config(page_title="Result Matcher", layout="centered")
-st.title("📘 EDSU Faculty of Science Auto-Matcher for Manual / Portal Template Results")
-st.markdown("Upload the **Result prepared manually in CSV** and the **CSV Template downloaded from the Result Portal** to generate the upload-ready file.")
+st.set_page_config(page_title="EDSU Result Auto-Matcher", layout="centered")
 
-# Upload Section
-manual_file = st.file_uploader("📄 Upload XYZ 111 Manual Result in CSV", type="csv")
-template_file = st.file_uploader("📄 Upload XZY 111 Result Template from Portal in CSV", type="csv")
+st.title("📊 EDSU Faculty of Science Auto-Matcher for Manual / Portal Template Results")
 
+# 📘 User Guide Section
+with st.expander("📘 How to Use This App (Click to Expand)"):
+    st.markdown("""
+### 🎯 Purpose  
+Automatically match and fill student **CA** and **Exam** scores from a manually prepared result into the official **portal template**, ready for upload.
+
+---
+
+### 📂 Required Files
+1. **Manual Result (CSV)**  
+   - Columns: `MatNo, Name, Department, CA, Exam, Total, Grade`
+
+2. **Portal Template (CSV)**  
+   - Columns: `MatNo, Name, Department, CA, Exam`
+
+---
+
+### 🚀 Steps to Use
+1. **Upload Files**  
+   - 📄 *Upload XYZ 111 Manual Result in CSV*  
+   - 📄 *Upload XYZ 111 Result Template from Portal in CSV*
+
+2. **Click 'Process Results'**  
+   - CA and Exam scores will be auto-filled based on **MatNo** match.
+
+3. **Download the Completed File**  
+   - Use **"Download Completed Results"** button.
+
+---
+
+### ⚠️ Notes
+- Matching is done using **MatNo** (trimmed and case-insensitive).
+- Unmatched students remain in the file with CA/Exam fields left blank.
+- Files **must be CSV format**.
+""")
+
+# File Upload Section
+manual_file = st.file_uploader("📄 Upload XYZ 111 Manual Result in CSV", type=["csv"])
+template_file = st.file_uploader("📄 Upload XYZ 111 Result Template from Portal in CSV", type=["csv"])
+
+# Main Logic
 if manual_file and template_file:
-    # Load CSVs
-    manual_df = pd.read_csv(manual_file, dtype=str)
-    template_df = pd.read_csv(template_file, dtype=str)
+    manual_df = pd.read_csv(manual_file)
+    template_df = pd.read_csv(template_file)
 
-    # Clean headers
-    manual_df.columns = manual_df.columns.str.strip()
-    template_df.columns = template_df.columns.str.strip()
+    # Normalize MatNo for matching (trim and lowercase)
+    manual_df['MatNo'] = manual_df['MatNo'].astype(str).str.strip().str.upper()
+    template_df['MatNo'] = template_df['MatNo'].astype(str).str.strip().str.upper()
 
-    # Backup originals
-    template_df['Name_Original'] = template_df['Name']
-    template_df['Department_Original'] = template_df['Department']
+    # Set index to MatNo for fast lookup
+    manual_lookup = manual_df.set_index('MatNo')
 
-    # Normalize for matching
-    def normalize(val):
-        return str(val).strip().lower() if pd.notna(val) else ''
+    # Track unmatched students
+    unmatched = []
 
-    manual_df['MatNo_clean'] = manual_df['MatNo'].str.strip().str.upper()
-    manual_df['Name_clean'] = manual_df['Name'].apply(normalize)
-    manual_df['Department_clean'] = manual_df['Department'].apply(normalize)
-
-    template_df['MatNo_clean'] = template_df['MatNo'].str.strip().str.upper()
-    template_df['Name_clean'] = template_df['Name'].apply(normalize)
-    template_df['Department_clean'] = template_df['Department'].apply(normalize)
-
-    # Initialize score columns
-    template_df['CA'] = ''
-    template_df['Exam'] = ''
-
-    # Matching logs
-    matched, unmatched = [], []
-
-    # Match Function
-    def match_scores(row):
-        matno = row['MatNo_clean']
-        match = manual_df[manual_df['MatNo_clean'] == matno] if matno else pd.DataFrame()
-
-        if match.empty:
-            match = manual_df[
-                (manual_df['Name_clean'] == row['Name_clean']) &
-                (manual_df['Department_clean'] == row['Department_clean'])
-            ]
-
-        if not match.empty:
-            ca = str(match.iloc[0]['CA']).strip()
-            exam = str(match.iloc[0]['Exam']).strip()
-            matched.append({
-                'MatNo': row['MatNo'],
-                'Name': row['Name_Original'],
-                'Department': row['Department_Original'],
-                'CA': ca,
-                'Exam': exam
-            })
-            return pd.Series([ca, exam])
+    # Fill CA and Exam where matches exist
+    for i, row in template_df.iterrows():
+        matno = row['MatNo']
+        if matno in manual_lookup.index:
+            template_df.at[i, 'CA'] = manual_lookup.at[matno, 'CA']
+            template_df.at[i, 'Exam'] = manual_lookup.at[matno, 'Exam']
         else:
-            unmatched.append({
-                'MatNo': row['MatNo'],
-                'Name': row['Name_Original'],
-                'Department': row['Department_Original']
-            })
-            return pd.Series(['', ''])
+            unmatched.append(matno)
 
-    # Apply Matching
-    template_df[['CA', 'Exam']] = template_df.apply(match_scores, axis=1)
-
-    # Restore original formatting
-    template_df['Name'] = template_df['Name_Original']
-    template_df['Department'] = template_df['Department_Original']
-    template_df.drop(columns=[
-        'Name_Original', 'Department_Original',
-        'MatNo_clean', 'Name_clean', 'Department_clean'
-    ], inplace=True)
-
-    # Show status
-    st.success(f"✅ Matched {len(matched)} students")
+    # Show unmatched entries
     if unmatched:
-        st.warning(f"⚠️ {len(unmatched)} students unmatched — please review manually")
+        st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
+        st.code('\n'.join(unmatched))
 
-    # Convert to downloadable CSVs
-    def df_to_csv_download(df):
-        return StringIO(df.to_csv(index=False)).getvalue()
-
-    # Downloads
-    st.download_button("⬇️ Download Completed Template",
-        data=df_to_csv_download(template_df),
-        file_name="XYZ_111_Results_Template.csv",
+    # Download button
+    st.success("✅ Result processing complete. Download the completed file below:")
+    st.download_button(
+        label="📥 Download Completed Results",
+        data=template_df.to_csv(index=False),
+        file_name="PHY_111_Results_Completed.csv",
         mime="text/csv"
     )
-
-    if matched:
-        st.download_button("📄 Download Matched Students Log",
-            data=df_to_csv_download(pd.DataFrame(matched)),
-            file_name="XYZ_111_Matched_Students_Log.csv",
-            mime="text/csv"
-        )
-
-    if unmatched:
-        st.download_button("⚠️ Download Unmatched Students Log",
-            data=df_to_csv_download(pd.DataFrame(unmatched)),
-            file_name="XYZ_111_Unmatched_Students_Log.csv",
-            mime="text/csv"
-        )
