@@ -61,8 +61,8 @@ if manual_file and template_file:
         final_df['CA'] = merged['CA']
         final_df['Exam'] = merged['Exam']
 
-        # Find unmatched MatNos
-        unmatched = merged[merged['CA'] == '']['MatNo'].tolist()
+        # Find unmatched but valid MatNo entries (exclude blank or NaN)
+        unmatched = merged[(merged['CA'] == '') & (merged['MatNo'].notna()) & (merged['MatNo'].str.strip() != '')]['MatNo'].tolist()
         if unmatched:
             st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
             st.code('\n'.join(unmatched))
