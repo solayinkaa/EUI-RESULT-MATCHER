@@ -259,7 +259,7 @@ if manual_file and template_file:
                 # Generate filename with timestamp
                 import datetime
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"EDSU_Completed_Results_{timestamp}.csv"
+                filename = f"ESUI_Completed_Results_{timestamp}.csv"
                 
                 # Create download data
                 csv_buffer = io.StringIO()
@@ -292,7 +292,7 @@ if manual_file and template_file:
 st.markdown("---")
 st.markdown(
     "<p style='text-align: center; color: #666; font-size: 0.9em;'>"
-    "EDSU Faculty of Science Result Processing Tool | "
+    "ESUI Faculty of Science Result Processing Tool | "
     "Developed for efficient result management"
     "</p>", 
     unsafe_allow_html=True
