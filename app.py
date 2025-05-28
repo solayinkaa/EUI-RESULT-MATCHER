@@ -64,8 +64,8 @@ if manual_file and template_file:
     for i, row in template_df.iterrows():
         matno = row['MatNo']
         if matno in manual_lookup.index:
-            template_df.at[i, 'CA'] = manual_lookup.at[matno, 'CA']
-            template_df.at[i, 'Exam'] = manual_lookup.at[matno, 'Exam']
+            template_df.loc[i, 'CA'] = manual_lookup.loc[matno, 'CA']
+            template_df.loc[i, 'Exam'] = manual_lookup.loc[matno, 'Exam']
         else:
             unmatched.append(matno)
 
