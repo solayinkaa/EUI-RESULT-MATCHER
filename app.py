@@ -61,12 +61,14 @@ if manual_file and template_file:
         final_df['CA'] = merged['CA']
         final_df['Exam'] = merged['Exam']
 
-        # Find unmatched but valid MatNo entries (exclude blank or NaN)
-        unmatched = merged[(merged['CA'] == '') & (merged['MatNo'].notna()) & (merged['MatNo'].str.strip() != '')]['MatNo'].tolist()
+        # Filter unmatched valid MatNo only (non-empty and not NaN)
+        unmatched = [matno for matno in unmatched if pd.notna(matno) and str(matno).strip() != ""]
+
+        # Show only valid unmatched entries
         if unmatched:
             st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
             st.code('\n'.join(unmatched))
-
+            
         # Create CSV for download
         csv_buffer = io.StringIO()
         final_df.to_csv(csv_buffer, index=False)
