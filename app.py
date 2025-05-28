@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import io  # Needed for in-memory CSV download
+import io  # For in-memory CSV download
 
 # Page configuration
 st.set_page_config(page_title="EDSU Result Auto-Matcher", layout="centered")
@@ -57,24 +57,26 @@ if manual_file is not None and template_file is not None:
         manual_df['MatNo'] = manual_df['MatNo'].astype(str).str.strip().str.upper()
         template_df['MatNo'] = template_df['MatNo'].astype(str).str.strip().str.upper()
 
-        # Create lookup from manual result
+        # Set MatNo as index for fast lookup
         manual_lookup = manual_df.set_index('MatNo')
 
         # Track unmatched students
         unmatched = []
 
-        # Fill CA and Exam only where matches exist
+        # Fill CA and Exam where matches exist
         for i, row in template_df.iterrows():
             matno = row['MatNo']
             if matno in manual_lookup.index:
                 match_row = manual_lookup.loc[matno]
-                if isinstance(match_row, pd.DataFrame):
+                if isinstance(match_row, pd.DataFrame):  # In case of duplicates
                     match_row = match_row.iloc[0]
-                # Only update CA and Exam fields
-                if 'CA' in template_df.columns:
-                    template_df.at[i, 'CA'] = match_row.get('CA', '')
-                if 'Exam' in template_df.columns:
-                    template_df.at[i, 'Exam'] = match_row.get('Exam', '')
+
+                ca_value = match_row.get('CA', '')
+                exam_value = match_row.get('Exam', '')
+
+                # Assign only if not NaN
+                template_df.at[i, 'CA'] = '' if pd.isna(ca_value) else ca_value
+                template_df.at[i, 'Exam'] = '' if pd.isna(exam_value) else exam_value
             else:
                 unmatched.append(matno)
 
@@ -83,8 +85,9 @@ if manual_file is not None and template_file is not None:
             st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
             st.code('\n'.join(unmatched))
 
-        # Generate CSV for download
+        # Generate CSV for download without NaNs
         csv_output = io.StringIO()
+        template_df.fillna('', inplace=True)
         template_df.to_csv(csv_output, index=False)
         csv_data = csv_output.getvalue()
 
