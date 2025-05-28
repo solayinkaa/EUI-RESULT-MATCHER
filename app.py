@@ -67,8 +67,13 @@ if manual_file is not None and template_file is not None:
         for i, row in template_df.iterrows():
             matno = row['MatNo']
             if matno in manual_lookup.index:
-                template_df.at[i, 'CA'] = manual_lookup.loc[matno, 'CA']
-                template_df.at[i, 'Exam'] = manual_lookup.loc[matno, 'Exam']
+                match_row = manual_lookup.loc[matno]
+                if isinstance(match_row, pd.Series):
+                template_df.at[i, 'CA'] = match_row['CA']
+                template_df.at[i, 'Exam'] = match_row['Exam']
+                else:
+            template_df.at[i, 'CA'] = match_row.iloc[0]['CA']
+            template_df.at[i, 'Exam'] = match_row.iloc[0]['Exam']
             else:
                 unmatched.append(matno)
 
