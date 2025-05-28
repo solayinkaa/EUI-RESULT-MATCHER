@@ -1,17 +1,19 @@
 import streamlit as st
 import pandas as pd
-import io
+import io  # Needed for in-memory CSV download
 
-# Page config
+# Page configuration
 st.set_page_config(page_title="EDSU Result Auto-Matcher", layout="centered")
 
 st.title("📊 EDSU Faculty of Science Auto-Matcher for Manual / Portal Template Results")
 
-# User guide
+# 📘 User Guide Section
 with st.expander("📘 How to Use This App (Click to Expand)"):
     st.markdown("""
 ### 🎯 Purpose  
-Auto-fill student **CA** and **Exam** scores into the official **portal template**, ready for upload.
+Automatically match and fill student **CA** and **Exam** scores from a manually prepared result into the official **portal template**, ready for upload.
+
+---
 
 ### 📂 Required Files
 1. **Manual Result (CSV)**  
@@ -20,65 +22,75 @@ Auto-fill student **CA** and **Exam** scores into the official **portal template
 2. **Portal Template (CSV)**  
    - Columns: `MatNo, Name, Department, CA, Exam`
 
-### 🚀 Steps
-1. Upload both files  
-2. Click "Process Results"  
-3. Download the updated portal file
+---
+
+### 🚀 Steps to Use
+1. **Upload Files**  
+   - 📄 *Upload XYZ 111 Manual Result in CSV*  
+   - 📄 *Upload XYZ 111 Result Template from Portal in CSV*
+
+2. **Click 'Process Results'**  
+   - CA and Exam scores will be auto-filled based on **MatNo** match.
+
+3. **Download the Completed File**  
+   - Use **"Download Completed Results"** button.
+
+---
 
 ### ⚠️ Notes
-- Matching is done using **MatNo** (trimmed and uppercase)
-- Only `CA` and `Exam` columns are updated
-- CA/Exam will be left **empty** (not `NaN`) if unmatched
+- Matching is done using **MatNo** (trimmed and case-insensitive).
+- Unmatched students remain in the file with CA/Exam fields left blank.
+- Files **must be in CSV format**.
 """)
 
-# Upload
-manual_file = st.file_uploader("📄 Upload Manual Result CSV", type=["csv"])
-template_file = st.file_uploader("📄 Upload Portal Template CSV", type=["csv"])
+# File Upload Section
+manual_file = st.file_uploader("📄 Upload XYZ 111 Manual Result in CSV", type=["csv"])
+template_file = st.file_uploader("📄 Upload XYZ 111 Result Template from Portal in CSV", type=["csv"])
 
-if manual_file and template_file:
+# Main Logic
+if manual_file is not None and template_file is not None:
     try:
-        # Load data
         manual_df = pd.read_csv(manual_file)
         template_df = pd.read_csv(template_file)
 
-        # Preserve original first 3 columns
-        original_template = template_df[['MatNo', 'Name', 'Department']].copy()
-
-        # Normalize MatNo
+        # Normalize MatNo for matching (trim and uppercase)
         manual_df['MatNo'] = manual_df['MatNo'].astype(str).str.strip().str.upper()
         template_df['MatNo'] = template_df['MatNo'].astype(str).str.strip().str.upper()
 
-        # Merge only CA and Exam columns
-        merged = pd.merge(template_df[['MatNo']], manual_df[['MatNo', 'CA', 'Exam']],
-                          on='MatNo', how='left')
+        # Create lookup from manual result
+        manual_lookup = manual_df.set_index('MatNo')
 
-        # Replace NaN with empty strings
-        merged['CA'] = merged['CA'].fillna('')
-        merged['Exam'] = merged['Exam'].fillna('')
+        # Track unmatched students
+        unmatched = []
 
-        # Combine back with original template columns
-        final_df = original_template.copy()
-        final_df['CA'] = merged['CA']
-        final_df['Exam'] = merged['Exam']
+        # Fill CA and Exam where matches exist
+        for i, row in template_df.iterrows():
+            matno = row['MatNo']
+            if matno in manual_lookup.index:
+                template_df.at[i, 'CA'] = manual_lookup.loc[matno, 'CA']
+                template_df.at[i, 'Exam'] = manual_lookup.loc[matno, 'Exam']
+            else:
+                unmatched.append(matno)
 
-        # Filter unmatched valid MatNo only (non-empty and not NaN)
-        unmatched = [matno for matno in unmatched if pd.notna(matno) and str(matno).strip() != ""]
+        # Clean unmatched list (remove NaN, empty, or whitespace-only entries)
+        unmatched = [m for m in unmatched if pd.notna(m) and str(m).strip() != ""]
 
         # Show only valid unmatched entries
         if unmatched:
             st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
             st.code('\n'.join(unmatched))
-            
-        # Create CSV for download
-        csv_buffer = io.StringIO()
-        final_df.to_csv(csv_buffer, index=False)
-        csv_data = csv_buffer.getvalue()
 
-        st.success("✅ Processing complete. Download the result below:")
+        # Generate CSV for download without changing any other columns
+        csv_output = io.StringIO()
+        template_df.to_csv(csv_output, index=False, na_rep='')  # Ensures empty cells are blank
+        csv_data = csv_output.getvalue()
+
+        # Download button
+        st.success("✅ Result processing complete. Download the completed file below:")
         st.download_button(
             label="📥 Download Completed Results",
             data=csv_data,
-            file_name="Completed_Results.csv",
+            file_name="PHY_111_Results_Completed.csv",
             mime="text/csv"
         )
 
