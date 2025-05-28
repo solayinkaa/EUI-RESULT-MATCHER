@@ -63,16 +63,18 @@ if manual_file is not None and template_file is not None:
         # Track unmatched students
         unmatched = []
 
-        # Fill CA and Exam where matches exist
+        # Fill CA and Exam only where matches exist
         for i, row in template_df.iterrows():
             matno = row['MatNo']
             if matno in manual_lookup.index:
                 match_row = manual_lookup.loc[matno]
-                # Handle case where multiple rows have same MatNo
                 if isinstance(match_row, pd.DataFrame):
                     match_row = match_row.iloc[0]
-                template_df.at[i, 'CA'] = match_row['CA']
-                template_df.at[i, 'Exam'] = match_row['Exam']
+                # Only update CA and Exam fields
+                if 'CA' in template_df.columns:
+                    template_df.at[i, 'CA'] = match_row.get('CA', '')
+                if 'Exam' in template_df.columns:
+                    template_df.at[i, 'Exam'] = match_row.get('Exam', '')
             else:
                 unmatched.append(matno)
 
