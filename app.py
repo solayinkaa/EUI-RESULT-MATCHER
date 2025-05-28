@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import io  # Needed for in-memory CSV download
+import io
 
 # Page configuration
 st.set_page_config(page_title="EDSU Result Auto-Matcher", layout="centered")
@@ -53,39 +53,41 @@ if manual_file is not None and template_file is not None:
         manual_df = pd.read_csv(manual_file)
         template_df = pd.read_csv(template_file)
 
-        # Normalize MatNo for matching (trim and uppercase)
+        # Normalize MatNo for matching
         manual_df['MatNo'] = manual_df['MatNo'].astype(str).str.strip().str.upper()
         template_df['MatNo'] = template_df['MatNo'].astype(str).str.strip().str.upper()
 
-        # Create lookup from manual result
-        manual_lookup = manual_df.set_index('MatNo')
+        # Ensure 'CA' and 'Exam' columns exist in template
+        if 'CA' not in template_df.columns:
+            template_df['CA'] = ''
+        if 'Exam' not in template_df.columns:
+            template_df['Exam'] = ''
 
-        # Track unmatched students
+        # Use a dictionary for lookup to avoid duplicate MatNos
+        manual_dict = manual_df.set_index('MatNo')[['CA', 'Exam']].to_dict('index')
+
         unmatched = []
 
-        # Fill CA and Exam where matches exist
         for i, row in template_df.iterrows():
             matno = row['MatNo']
-            if matno in manual_lookup.index:
-                template_df.at[i, 'CA'] = manual_lookup.loc[matno, 'CA']
-                template_df.at[i, 'Exam'] = manual_lookup.loc[matno, 'Exam']
+            if matno in manual_dict:
+                template_df.at[i, 'CA'] = manual_dict[matno]['CA']
+                template_df.at[i, 'Exam'] = manual_dict[matno]['Exam']
             else:
-                unmatched.append(matno)
+                # Exclude invalid or empty MatNo
+                if pd.notna(matno) and str(matno).strip() != "":
+                    unmatched.append(matno)
 
-        # Clean unmatched list (remove NaN, empty, or whitespace-only entries)
-        unmatched = [m for m in unmatched if pd.notna(m) and str(m).strip() != ""]
-
-        # Show only valid unmatched entries
+        # Show unmatched entries
         if unmatched:
             st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
             st.code('\n'.join(unmatched))
 
-        # Generate CSV for download without changing any other columns
+        # Download CSV (replace NaN with empty string for clean output)
         csv_output = io.StringIO()
-        template_df.to_csv(csv_output, index=False, na_rep='')  # Ensures empty cells are blank
+        template_df.to_csv(csv_output, index=False, na_rep='')
         csv_data = csv_output.getvalue()
 
-        # Download button
         st.success("✅ Result processing complete. Download the completed file below:")
         st.download_button(
             label="📥 Download Completed Results",
