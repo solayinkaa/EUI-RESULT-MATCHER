@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import io  # Needed for in-memory CSV download
+import io  # For in-memory CSV download
 
 # Page configuration
 st.set_page_config(page_title="EDSU Result Auto-Matcher", layout="centered")
@@ -48,8 +48,9 @@ manual_file = st.file_uploader("📄 Upload XYZ 111 Manual Result in CSV", type=
 template_file = st.file_uploader("📄 Upload XYZ 111 Result Template from Portal in CSV", type=["csv"])
 
 # Main Logic
-if manual_file is not None and template_file is not None:
+if manual_file and template_file:
     try:
+        # Read uploaded files
         manual_df = pd.read_csv(manual_file)
         template_df = pd.read_csv(template_file)
 
@@ -57,41 +58,45 @@ if manual_file is not None and template_file is not None:
         manual_df['MatNo'] = manual_df['MatNo'].astype(str).str.strip().str.upper()
         template_df['MatNo'] = template_df['MatNo'].astype(str).str.strip().str.upper()
 
-        # Create lookup from manual result
+        # Drop duplicates in manual file to avoid ambiguity
+        manual_df = manual_df.drop_duplicates(subset='MatNo', keep='first')
+
+        # Create lookup dictionary for fast access
         manual_lookup = manual_df.set_index('MatNo')
 
         # Track unmatched students
         unmatched = []
 
-        # Fill CA and Exam where matches exist
+        # Match and update CA and Exam
         for i, row in template_df.iterrows():
             matno = row['MatNo']
             if matno in manual_lookup.index:
                 match_row = manual_lookup.loc[matno]
                 if isinstance(match_row, pd.Series):
-                template_df.at[i, 'CA'] = match_row['CA']
-                template_df.at[i, 'Exam'] = match_row['Exam']
+                    template_df.at[i, 'CA'] = match_row['CA']
+                    template_df.at[i, 'Exam'] = match_row['Exam']
                 else:
-            template_df.at[i, 'CA'] = match_row.iloc[0]['CA']
-            template_df.at[i, 'Exam'] = match_row.iloc[0]['Exam']
+                    # if multiple rows exist with same MatNo
+                    template_df.at[i, 'CA'] = match_row.iloc[0]['CA']
+                    template_df.at[i, 'Exam'] = match_row.iloc[0]['Exam']
             else:
                 unmatched.append(matno)
 
-        # Show unmatched entries
+        # Show warning if unmatched
         if unmatched:
             st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
             st.code('\n'.join(unmatched))
 
-        # Generate CSV for download
-        csv_output = io.StringIO()
-        template_df.to_csv(csv_output, index=False)
-        csv_data = csv_output.getvalue()
+        # Generate downloadable CSV
+        output = io.StringIO()
+        template_df.to_csv(output, index=False)
+        processed_csv = output.getvalue()
 
-        # Download button
+        # Download Button
         st.success("✅ Result processing complete. Download the completed file below:")
         st.download_button(
             label="📥 Download Completed Results",
-            data=csv_data,
+            data=processed_csv,
             file_name="PHY_111_Results_Completed.csv",
             mime="text/csv"
         )
