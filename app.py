@@ -6,7 +6,7 @@ from typing import Tuple, List, Dict, Optional
 
 # Page configuration
 st.set_page_config(
-    page_title="EDSU Result Auto-Matcher", 
+    page_title="ESUI Result Auto-Matcher", 
     page_icon="📊",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -36,7 +36,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<h1 class="main-header">📊 EDSU Faculty of Science Auto-Matcher</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">📊 ESUI Faculty of Science Auto-Matcher</h1>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; color: #666;">Automated matching of manual results with portal templates</p>', unsafe_allow_html=True)
 
 def validate_dataframe(df: pd.DataFrame, file_type: str, required_columns: List[str]) -> Tuple[bool, str]:
