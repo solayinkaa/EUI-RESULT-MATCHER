@@ -26,8 +26,8 @@ Automatically match and fill student **CA** and **Exam** scores from a manually 
 
 ### 🚀 Steps to Use
 1. **Upload Files**  
-   - 📄 *Upload XYZ 111 Manual Result in CSV*  
-   - 📄 *Upload XYZ 111 Result Template from Portal in CSV*
+   - 📄 *Upload Manual Result (CSV)*  
+   - 📄 *Upload Portal Template (CSV)*
 
 2. **Click 'Process Results'**  
    - CA and Exam scores will be auto-filled based on **MatNo** match.
@@ -39,62 +39,58 @@ Automatically match and fill student **CA** and **Exam** scores from a manually 
 
 ### ⚠️ Notes
 - Matching is done using **MatNo** (trimmed and case-insensitive).
-- Unmatched students remain in the file with CA/Exam fields left blank.
+- Unmatched students remain with CA/Exam blank.
 - Files **must be in CSV format**.
 """)
 
 # File Upload Section
-manual_file = st.file_uploader("📄 Upload XYZ 111 Manual Result in CSV", type=["csv"])
-template_file = st.file_uploader("📄 Upload XYZ 111 Result Template from Portal in CSV", type=["csv"])
+manual_file = st.file_uploader("📄 Upload Manual Result CSV", type=["csv"])
+template_file = st.file_uploader("📄 Upload Portal Template CSV", type=["csv"])
 
 # Main Logic
-if manual_file is not None and template_file is not None:
+if manual_file and template_file:
     try:
         manual_df = pd.read_csv(manual_file)
         template_df = pd.read_csv(template_file)
 
-        # Normalize MatNo for matching (trim and uppercase)
+        # Normalize MatNo for matching
         manual_df['MatNo'] = manual_df['MatNo'].astype(str).str.strip().str.upper()
         template_df['MatNo'] = template_df['MatNo'].astype(str).str.strip().str.upper()
 
-        # Ensure CA and Exam columns exist and are filled with empty strings
+        # Ensure CA and Exam columns exist and are string type
         for col in ['CA', 'Exam']:
             if col not in template_df.columns:
                 template_df[col] = ''
             else:
-                template_df[col] = template_df[col].astype(str).replace('nan', '').fillna('')
+                template_df[col] = template_df[col].astype(str).fillna('').replace('nan', '')
 
-        # Create lookup from manual result
+        # Manual result as lookup
         manual_lookup = manual_df.set_index('MatNo')
 
-        # Track unmatched students
         unmatched = []
 
-        # Fill CA and Exam where matches exist
+        # Match and fill
         for i, row in template_df.iterrows():
             matno = row['MatNo']
             if matno in manual_lookup.index:
-                match_row = manual_lookup.loc[matno]
-                if isinstance(match_row, pd.DataFrame):  # In case of duplicates
-                    match_row = match_row.iloc[0]
+                match = manual_lookup.loc[matno]
+                if isinstance(match, pd.DataFrame):  # multiple entries
+                    match = match.iloc[0]
 
-                ca_value = match_row.get('CA', '')
-                exam_value = match_row.get('Exam', '')
-
-                template_df.at[i, 'CA'] = '' if pd.isna(ca_value) else ca_value
-                template_df.at[i, 'Exam'] = '' if pd.isna(exam_value) else exam_value
+                template_df.at[i, 'CA'] = str(match.get('CA', '')).strip() if pd.notna(match.get('CA', '')) else ''
+                template_df.at[i, 'Exam'] = str(match.get('Exam', '')).strip() if pd.notna(match.get('Exam', '')) else ''
             else:
                 unmatched.append(matno)
 
-        # Show unmatched entries
+        # Show unmatched
         if unmatched:
             st.warning("⚠️ The following MatNo(s) were not found in the manual result:")
             st.code('\n'.join(unmatched))
 
-        # Final cleaning: remove any leftover NaNs in all columns
-        template_df = template_df.fillna('').replace('nan', '')
+        # Clean the entire DataFrame to prevent NaN in any column
+        template_df = template_df.astype(str).replace('nan', '').fillna('')
 
-        # Generate CSV for download
+        # Prepare CSV download
         csv_output = io.StringIO()
         template_df.to_csv(csv_output, index=False)
         csv_data = csv_output.getvalue()
