@@ -5,11 +5,11 @@ from rapidfuzz import fuzz
 
 st.set_page_config(page_title="ESUI Result Matcher by A.S. Olayinka", layout="wide")
 
-st.title("🧬 CA & Exam Result Matcher")
+st.title("🧬 ESUI Result Matcher by A.S. Olayinka")
 
 # File upload section
-manual_file = st.file_uploader("Upload CA & Exam Data File (PHY 111 MANUALLY COMPUTED RESULT.csv)", type="csv")
-template_file = st.file_uploader("Upload Result Template File (PHY 111_Results_Template.csv)", type="csv")
+manual_file = st.file_uploader("Upload CA & Exam Scores Manually computed (containing columns name: MatNo	Name	Department	CA	Exam in .csv)", type="csv")
+template_file = st.file_uploader("Upload Result Template File as downloaded from the portal (e.g. PHY 111_Results_Template.csv)", type="csv")
 
 if manual_file and template_file:
     manual_df = pd.read_csv(manual_file, dtype=str)
