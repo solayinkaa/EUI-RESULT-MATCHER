@@ -1,4 +1,5 @@
 streamlit
+rapidfuzz
 pandas
 numpy
 xlrd
