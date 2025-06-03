@@ -136,7 +136,7 @@ if manual_file and template_file:
         st.download_button(
             label="📄 Download Matched Students Log",
             data=to_csv_download(matched_df),
-            file_name="BIO_111_Matched_Students_Log.csv",
+            file_name="PHY_111_Matched_Students_Log.csv",
             mime="text/csv"
         )
 
@@ -145,7 +145,7 @@ if manual_file and template_file:
         st.download_button(
             label="⚠️ Download Unmatched Students Log",
             data=to_csv_download(unmatched_df),
-            file_name="BIO_111_Unmatched_Students_Log.csv",
+            file_name="PHY_111_Unmatched_Students_Log.csv",
             mime="text/csv"
         )
         st.warning("⚠️ Some students could not be matched. Please review the unmatched log.")
